@@ -35,8 +35,8 @@ client.on('interactionCreate', async interaction => {
     }
 });
 
-client.on('clientReady', () => { ... })
-    console.log(` ${client.user.tag} is online!`);
+client.on('clientReady', () => {
+    console.log(`${client.user.tag} is online!`);
 });
 
 client.login(process.env.TOKEN);
