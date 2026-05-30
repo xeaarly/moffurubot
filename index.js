@@ -35,7 +35,7 @@ client.on('interactionCreate', async interaction => {
     }
 });
 
-client.on('ready', () => {
+client.on('clientReady', () => { ... })
     console.log(` ${client.user.tag} is online!`);
 });
 
