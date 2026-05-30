@@ -37,6 +37,27 @@ client.on('interactionCreate', async interaction => {
 
 client.on('clientReady', () => {
     console.log(`${client.user.tag} is online!`);
+    
+    // Rotating statuses
+    const statuses = [
+        { name: 'paint dry', type: 3 },                           // Watching paint dry
+        { name: 'the server\'s inactive state', type: 3 },        // Watching server's inactive state
+        { name: 'watercolor dreams', type: 4, state: '🎨 painting in moffuru' },  // Custom
+        { name: 'brush strokes', type: 3 },                       // Watching brush strokes
+        { name: 'with watercolors', type: 0 }                     // Playing with watercolors
+    ];
+    
+    let i = 0;
+    setInterval(() => {
+        const status = statuses[i % statuses.length];
+        if (status.type === 4) {
+            client.user.setActivity(status.name, { type: status.type, state: status.state });
+        } else {
+            client.user.setActivity(status.name, { type: status.type });
+        }
+        client.user.setStatus('online');
+        i++;
+    }, 10000); // Changes every 10 seconds
 });
 
 client.login(process.env.TOKEN);
