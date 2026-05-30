@@ -13,7 +13,7 @@ module.exports = {
         const pingEmbed = new EmbedBuilder()
             .setColor(0xffb7c5)
             .setAuthor({ name: `${interaction.user.username}`, iconURL: interaction.user.displayAvatarURL() })
-            .setDescription(`﹒ ⌗ <a:dcr_icon:1501886032818475059> ﹒**Pong!**﹒ <a:dcr_icon:1501886032818475059> ﹒\n\n︶︶ ﹒✦  **Bot Latency:** \`${latency}ms\` \n\n♡﹒ ﹒︵ **API Latency:** \`${apiLatency}ms\``)
+            .setDescription(`⌗ <a:dcr_icon:1501886032818475059> ﹒**Pong!**﹒ <a:dcr_icon:1501886032818475059> \n\n︶︶ ﹒✦  **Bot Latency:** \`${latency}ms\` \n\n♡﹒ ﹒︵ **API Latency:** \`${apiLatency}ms\``)
             .setFooter({ text: `watercolor dreams • brush strokes` });
         
         await interaction.editReply({ embeds: [pingEmbed] });
