@@ -1,7 +1,7 @@
 {
   "name": "moffuru-bot",
   "version": "1.0.0",
-  "description": "Cute bot specially made for moffuru!",
+  "description": "bot specially made for moffuru!",
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
@@ -10,6 +10,5 @@
   "dependencies": {
     "discord.js": "^14.14.1",
     "dotenv": "^16.3.1"
-        "quick.db": "^9.1.6"
   }
 }
