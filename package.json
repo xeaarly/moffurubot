@@ -8,6 +8,9 @@
     "deploy": "node deploy-commands.js",
     "build": "npm install"
   },
+  "engines": {
+    "node": ">=18.0.0"
+  },
   "dependencies": {
     "discord.js": "^14.14.1",
     "dotenv": "^16.3.1"
