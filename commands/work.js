@@ -24,7 +24,7 @@ module.exports = {
             const minutesLeft = Math.ceil((30 * 60 * 1000 - (now - user.lastWork)) / 60000);
             const cooldownEmbed = new EmbedBuilder()
                 .setColor(0xffb7c5)
-                .setDescription(`⌗ <a:dcr_icon:1501886032818475059> ﹒**You can work again in ${minutesLeft} minutes!**﹒ <a:dcr_icon:1501886032818475059> ﹒﹒︵ `)
+                .setDescription(`﹒⌗ <a:dcr_icon:1501886032818475059> ﹒**You can work again in ${minutesLeft} minutes!**﹒ <a:dcr_icon:1501886032818475059> ﹒﹒︵ `)
                 .setFooter({ text: `Take a break!` });
             return interaction.reply({ embeds: [cooldownEmbed], ephemeral: true });
         }
@@ -68,19 +68,19 @@ module.exports = {
         
         const jobs = [
             { name: 'Watercolor Artist', emoji: '<a:tumblr_9591befccd5405a5596874a50:1508609087955402865>' },
-            { name: 'Paintbrush Wielder', emoji: '<a:tumblr_91a792399801929b62e23ca8f:1508609247246549094>' },
+            { name: 'Color Mixer', emoji: '<a:tumblr_91a792399801929b62e23ca8f:1508609247246549094>' },
             { name: 'Sketchbook Doodler', emoji: '<a:dcr_icon10:1491021234173907055>' },
-            { name: 'Flower Painter', emoji: '<a:05_Clover:1505555784266940640>' }
+            { name: 'Sketch Artist', emoji: '<a:05_Clover:1505555784266940640>' }
         ];
         const job = jobs[Math.floor(Math.random() * jobs.length)];
         
-        // Create streak display with clovers
-        const streakDisplay = '🍀'.repeat(Math.min(user.streak, 10)) + (user.streak > 10 ? ` +${user.streak - 10}` : '');
+// Create streak display with custom emojis
+const streakDisplay = '<a:05_Clover:1505555784266940640>'.repeat(Math.min(user.streak, 5)) + (user.streak > 5 ? ` +${user.streak - 5}` : '');
         
         const workEmbed = new EmbedBuilder()
             .setColor(0xffb7c5)
             .setAuthor({ name: `${interaction.user.username}`, iconURL: interaction.user.displayAvatarURL() })
-            .setDescription(`⌗﹒ ${job.emoji} ﹒**${job.name}**﹒ ${job.emoji} ﹙✦﹚\n<a:dcr_a1:1501886035402031115> ﹒✦ **You earned \`${earnings}\` palette pieces!** ✦ ﹒ <a:dcr_a1:1501886035402031115>\n\n﹒⌗ **Streak: ${user.streak} day${user.streak !== 1 ? 's' : ''}** ${streakDisplay} ﹒⌗${bonusMessage} ⸝⸝ `)
+            .setDescription(`⌗﹒ ${job.emoji} ﹒**${job.name}**﹒ ${job.emoji} ﹒︵ \n<a:dcr_a1:1501886035402031115> ﹙✦﹚ **You earned \`${earnings}\` palette pieces!** ✦ ﹒ <a:dcr_a1:1501886035402031115>\n\n﹒ ♡﹒ **Streak: ${user.streak} day${user.streak !== 1 ? 's' : ''}** ${streakDisplay} ﹒${bonusMessage}`)
             .setFooter({ text: `keep working!.. i collect all your tax..` });
         
         await interaction.reply({ embeds: [workEmbed] });
