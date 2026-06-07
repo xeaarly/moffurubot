@@ -8,31 +8,50 @@ async function showEmbedEditor(interaction, embedName, guildId) {
     const embedData = embeds[embedName] || {};
     const user = interaction.user;
 
-    // Parse placeholders for preview
+    // Parse placeholders for display (but don't use placeholder strings as URLs)
     let authorName = embedData.authorName || '';
     let authorIcon = embedData.authorIcon || '';
     let title = embedData.title || '';
     let description = embedData.description || '';
     let footerText = embedData.footerText || '';
     let footerIcon = embedData.footerIcon || '';
+    let thumbnail = embedData.thumbnail || '';
+    let image = embedData.image || '';
     
-    // Replace placeholders for display
+    // Replace text placeholders for display
     authorName = authorName.replace(/{user}/g, user.username).replace(/{user_name}/g, user.username).replace(/{user_tag}/g, user.username);
     title = title.replace(/{user}/g, user.username).replace(/{user_name}/g, user.username).replace(/{user_tag}/g, user.username);
     description = description.replace(/{user}/g, user.username).replace(/{user_name}/g, user.username).replace(/{user_tag}/g, user.username).replace(/{newline}/g, '\n');
     footerText = footerText.replace(/{user}/g, user.username).replace(/{user_name}/g, user.username).replace(/{user_tag}/g, user.username);
     
-    // For preview, show placeholder text instead of actual URLs
-    if (authorIcon === '{user_avatar}' || authorIcon === '{user_icon}') authorIcon = '[User Avatar]';
-    if (footerIcon === '{user_avatar}' || footerIcon === '{user_icon}') footerIcon = '[User Avatar]';
+    // For preview, ONLY use valid URLs - skip placeholders
+    let validAuthorIcon = null;
+    if (authorIcon && authorIcon !== '{user_avatar}' && authorIcon !== '{user_icon}' && authorIcon.startsWith('http')) {
+        validAuthorIcon = authorIcon;
+    }
+    
+    let validFooterIcon = null;
+    if (footerIcon && footerIcon !== '{user_avatar}' && footerIcon !== '{user_icon}' && footerIcon.startsWith('http')) {
+        validFooterIcon = footerIcon;
+    }
+    
+    let validThumbnail = null;
+    if (thumbnail && thumbnail !== '{user_avatar}' && thumbnail !== '{user_icon}' && thumbnail.startsWith('http')) {
+        validThumbnail = thumbnail;
+    }
+    
+    let validImage = null;
+    if (image && image !== '{user_avatar}' && image !== '{user_icon}' && image.startsWith('http')) {
+        validImage = image;
+    }
 
     const preview = new EmbedBuilder().setColor(embedData.color || 0xffb7c5);
-    if (authorName) preview.setAuthor({ name: authorName, iconURL: authorIcon || null });
+    if (authorName) preview.setAuthor({ name: authorName, iconURL: validAuthorIcon });
     if (title) preview.setTitle(title);
     if (description) preview.setDescription(description);
-    if (embedData.thumbnail && embedData.thumbnail !== '{user_avatar}' && embedData.thumbnail !== '{user_icon}') preview.setThumbnail(embedData.thumbnail);
-    if (embedData.image && embedData.image !== '{user_avatar}' && embedData.image !== '{user_icon}') preview.setImage(embedData.image);
-    if (footerText) preview.setFooter({ text: footerText, iconURL: footerIcon || null });
+    if (validThumbnail) preview.setThumbnail(validThumbnail);
+    if (validImage) preview.setImage(validImage);
+    if (footerText) preview.setFooter({ text: footerText, iconURL: validFooterIcon });
 
     const row1 = new ActionRowBuilder()
         .addComponents(
