@@ -64,7 +64,6 @@ module.exports = {
         else if (sub === 'edit') {
             const embedName = interaction.options.getString('name');
             
-            // If name provided, edit directly
             if (embedName) {
                 const embeds = await db.get(`saved_embeds_${guildId}`) || {};
                 if (!embeds[embedName]) {
@@ -74,7 +73,6 @@ module.exports = {
                 return;
             }
             
-            // Otherwise, show dropdown of all embeds
             const embeds = await db.get(`saved_embeds_${guildId}`) || {};
             const embedList = Object.keys(embeds);
             
@@ -115,13 +113,66 @@ module.exports = {
             const user = interaction.user;
             const embed = new EmbedBuilder().setColor(embedData.color || 0xffb7c5);
             
-            if (embedData.authorName) embed.setAuthor({ name: embedData.authorName.replace(/{user}/g, user.username).replace(/{user_name}/g, user.username), iconURL: embedData.authorIcon ? embedData.authorIcon.replace(/{user_avatar}/g, user.displayAvatarURL()) : null });
-            if (embedData.title) embed.setTitle(embedData.title.replace(/{user}/g, user.username).replace(/{user_name}/g, user.username));
-            if (embedData.description) embed.setDescription(embedData.description.replace(/{user}/g, user.username).replace(/{user_name}/g, user.username).replace(/{newline}/g, '\n'));
-            if (embedData.thumbnail) embed.setThumbnail(embedData.thumbnail.replace(/{user_avatar}/g, user.displayAvatarURL()));
-            if (embedData.image) embed.setImage(embedData.image.replace(/{user_avatar}/g, user.displayAvatarURL()));
-            if (embedData.footerText) embed.setFooter({ text: embedData.footerText.replace(/{user}/g, user.username).replace(/{user_name}/g, user.username), iconURL: embedData.footerIcon ? embedData.footerIcon.replace(/{user_avatar}/g, user.displayAvatarURL()) : null });
-            if (embedData.timestamp) embed.setTimestamp();
+            // Author - handle {user_avatar} placeholder
+            if (embedData.authorName) {
+                let authorText = embedData.authorName.replace(/{user}/g, user.username).replace(/{user_name}/g, user.username).replace(/{user_tag}/g, user.username);
+                let authorIcon = null;
+                if (embedData.authorIcon) {
+                    if (embedData.authorIcon === '{user_avatar}' || embedData.authorIcon === '{user_icon}') {
+                        authorIcon = user.displayAvatarURL();
+                    } else {
+                        authorIcon = embedData.authorIcon;
+                    }
+                }
+                embed.setAuthor({ name: authorText, iconURL: authorIcon });
+            }
+            
+            // Title
+            if (embedData.title) {
+                embed.setTitle(embedData.title.replace(/{user}/g, user.username).replace(/{user_name}/g, user.username).replace(/{user_tag}/g, user.username));
+            }
+            
+            // Description
+            if (embedData.description) {
+                embed.setDescription(embedData.description.replace(/{user}/g, user.username).replace(/{user_name}/g, user.username).replace(/{user_tag}/g, user.username).replace(/{newline}/g, '\n'));
+            }
+            
+            // Thumbnail - handle {user_avatar} placeholder
+            if (embedData.thumbnail) {
+                let thumbnail = embedData.thumbnail;
+                if (thumbnail === '{user_avatar}' || thumbnail === '{user_icon}') {
+                    thumbnail = user.displayAvatarURL();
+                }
+                embed.setThumbnail(thumbnail);
+            }
+            
+            // Image - handle {user_avatar} placeholder
+            if (embedData.image) {
+                let image = embedData.image;
+                if (image === '{user_avatar}' || image === '{user_icon}') {
+                    image = user.displayAvatarURL();
+                }
+                embed.setImage(image);
+            }
+            
+            // Footer - handle {user_avatar} placeholder
+            if (embedData.footerText) {
+                let footerText = embedData.footerText.replace(/{user}/g, user.username).replace(/{user_name}/g, user.username).replace(/{user_tag}/g, user.username);
+                let footerIcon = null;
+                if (embedData.footerIcon) {
+                    if (embedData.footerIcon === '{user_avatar}' || embedData.footerIcon === '{user_icon}') {
+                        footerIcon = user.displayAvatarURL();
+                    } else {
+                        footerIcon = embedData.footerIcon;
+                    }
+                }
+                embed.setFooter({ text: footerText, iconURL: footerIcon });
+            }
+            
+            // Timestamp
+            if (embedData.timestamp) {
+                embed.setTimestamp();
+            }
 
             await channel.send({ embeds: [embed] });
             await interaction.reply({ content: `✅ Embed sent to ${channel}!`, ephemeral: true });
@@ -140,12 +191,46 @@ module.exports = {
             const user = interaction.user;
             const embed = new EmbedBuilder().setColor(embedData.color || 0xffb7c5);
             
-            if (embedData.authorName) embed.setAuthor({ name: embedData.authorName.replace(/{user}/g, user.username).replace(/{user_name}/g, user.username), iconURL: embedData.authorIcon ? embedData.authorIcon.replace(/{user_avatar}/g, user.displayAvatarURL()) : null });
+            if (embedData.authorName) {
+                let authorText = embedData.authorName.replace(/{user}/g, user.username).replace(/{user_name}/g, user.username).replace(/{user_tag}/g, user.username);
+                let authorIcon = null;
+                if (embedData.authorIcon) {
+                    if (embedData.authorIcon === '{user_avatar}' || embedData.authorIcon === '{user_icon}') {
+                        authorIcon = user.displayAvatarURL();
+                    } else {
+                        authorIcon = embedData.authorIcon;
+                    }
+                }
+                embed.setAuthor({ name: authorText, iconURL: authorIcon });
+            }
             if (embedData.title) embed.setTitle(embedData.title.replace(/{user}/g, user.username).replace(/{user_name}/g, user.username));
             if (embedData.description) embed.setDescription(embedData.description.replace(/{user}/g, user.username).replace(/{user_name}/g, user.username).replace(/{newline}/g, '\n'));
-            if (embedData.thumbnail) embed.setThumbnail(embedData.thumbnail.replace(/{user_avatar}/g, user.displayAvatarURL()));
-            if (embedData.image) embed.setImage(embedData.image.replace(/{user_avatar}/g, user.displayAvatarURL()));
-            if (embedData.footerText) embed.setFooter({ text: embedData.footerText.replace(/{user}/g, user.username).replace(/{user_name}/g, user.username), iconURL: embedData.footerIcon ? embedData.footerIcon.replace(/{user_avatar}/g, user.displayAvatarURL()) : null });
+            if (embedData.thumbnail) {
+                let thumbnail = embedData.thumbnail;
+                if (thumbnail === '{user_avatar}' || thumbnail === '{user_icon}') {
+                    thumbnail = user.displayAvatarURL();
+                }
+                embed.setThumbnail(thumbnail);
+            }
+            if (embedData.image) {
+                let image = embedData.image;
+                if (image === '{user_avatar}' || image === '{user_icon}') {
+                    image = user.displayAvatarURL();
+                }
+                embed.setImage(image);
+            }
+            if (embedData.footerText) {
+                let footerText = embedData.footerText.replace(/{user}/g, user.username).replace(/{user_name}/g, user.username);
+                let footerIcon = null;
+                if (embedData.footerIcon) {
+                    if (embedData.footerIcon === '{user_avatar}' || embedData.footerIcon === '{user_icon}') {
+                        footerIcon = user.displayAvatarURL();
+                    } else {
+                        footerIcon = embedData.footerIcon;
+                    }
+                }
+                embed.setFooter({ text: footerText, iconURL: footerIcon });
+            }
             if (embedData.timestamp) embed.setTimestamp();
 
             await interaction.reply({ embeds: [embed], ephemeral: true });

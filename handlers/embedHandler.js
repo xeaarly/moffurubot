@@ -8,13 +8,31 @@ async function showEmbedEditor(interaction, embedName, guildId) {
     const embedData = embeds[embedName] || {};
     const user = interaction.user;
 
+    // Parse placeholders for preview
+    let authorName = embedData.authorName || '';
+    let authorIcon = embedData.authorIcon || '';
+    let title = embedData.title || '';
+    let description = embedData.description || '';
+    let footerText = embedData.footerText || '';
+    let footerIcon = embedData.footerIcon || '';
+    
+    // Replace placeholders for display
+    authorName = authorName.replace(/{user}/g, user.username).replace(/{user_name}/g, user.username).replace(/{user_tag}/g, user.username);
+    title = title.replace(/{user}/g, user.username).replace(/{user_name}/g, user.username).replace(/{user_tag}/g, user.username);
+    description = description.replace(/{user}/g, user.username).replace(/{user_name}/g, user.username).replace(/{user_tag}/g, user.username).replace(/{newline}/g, '\n');
+    footerText = footerText.replace(/{user}/g, user.username).replace(/{user_name}/g, user.username).replace(/{user_tag}/g, user.username);
+    
+    // For preview, show placeholder text instead of actual URLs
+    if (authorIcon === '{user_avatar}' || authorIcon === '{user_icon}') authorIcon = '[User Avatar]';
+    if (footerIcon === '{user_avatar}' || footerIcon === '{user_icon}') footerIcon = '[User Avatar]';
+
     const preview = new EmbedBuilder().setColor(embedData.color || 0xffb7c5);
-    if (embedData.authorName) preview.setAuthor({ name: (embedData.authorName || '').replace(/{user}/g, user.username) });
-    if (embedData.title) preview.setTitle((embedData.title || '').replace(/{user}/g, user.username));
-    if (embedData.description) preview.setDescription((embedData.description || '').replace(/{user}/g, user.username).replace(/{newline}/g, '\n'));
-    if (embedData.thumbnail) preview.setThumbnail(embedData.thumbnail);
-    if (embedData.image) preview.setImage(embedData.image);
-    if (embedData.footerText) preview.setFooter({ text: (embedData.footerText || '').replace(/{user}/g, user.username) });
+    if (authorName) preview.setAuthor({ name: authorName, iconURL: authorIcon || null });
+    if (title) preview.setTitle(title);
+    if (description) preview.setDescription(description);
+    if (embedData.thumbnail && embedData.thumbnail !== '{user_avatar}' && embedData.thumbnail !== '{user_icon}') preview.setThumbnail(embedData.thumbnail);
+    if (embedData.image && embedData.image !== '{user_avatar}' && embedData.image !== '{user_icon}') preview.setImage(embedData.image);
+    if (footerText) preview.setFooter({ text: footerText, iconURL: footerIcon || null });
 
     const row1 = new ActionRowBuilder()
         .addComponents(
@@ -29,7 +47,6 @@ async function showEmbedEditor(interaction, embedName, guildId) {
             new ButtonBuilder().setCustomId(`embed_done_${embedName}`).setLabel('Save').setStyle(ButtonStyle.Success).setEmoji('✅')
         );
 
-    // For modal responses, we must use reply (not update)
     await interaction.reply({ 
         content: `Editing: ${embedName}`, 
         embeds: [preview], 
@@ -61,7 +78,6 @@ async function handleEmbedButtons(interaction) {
     const embedData = embeds[embedName] || {};
     
     if (action === 'embed_basic') {
-        console.log('[DEBUG] Opening basic modal for:', embedName);
         const modal = new ModalBuilder().setCustomId(`modal_basic_${embedName}`).setTitle(`Edit: ${embedName}`);
         modal.addComponents(
             new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('title').setLabel('Title').setValue(embedData.title || '').setStyle(TextInputStyle.Short).setRequired(false)),
@@ -72,31 +88,28 @@ async function handleEmbedButtons(interaction) {
     }
     
     if (action === 'embed_author') {
-        console.log('[DEBUG] Opening author modal for:', embedName);
         const modal = new ModalBuilder().setCustomId(`modal_author_${embedName}`).setTitle(`Edit Author: ${embedName}`);
         modal.addComponents(
             new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('author_name').setLabel('Author Name').setValue(embedData.authorName || '').setStyle(TextInputStyle.Short).setRequired(false)),
-            new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('author_icon').setLabel('Icon URL').setValue(embedData.authorIcon || '').setStyle(TextInputStyle.Short).setRequired(false))
+            new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('author_icon').setLabel('Author Icon URL (or {user_avatar})').setValue(embedData.authorIcon || '').setStyle(TextInputStyle.Short).setRequired(false))
         );
         await interaction.showModal(modal);
     }
     
     if (action === 'embed_footer') {
-        console.log('[DEBUG] Opening footer modal for:', embedName);
         const modal = new ModalBuilder().setCustomId(`modal_footer_${embedName}`).setTitle(`Edit Footer: ${embedName}`);
         modal.addComponents(
             new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('footer_text').setLabel('Footer Text').setValue(embedData.footerText || '').setStyle(TextInputStyle.Short).setRequired(false)),
-            new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('footer_icon').setLabel('Icon URL').setValue(embedData.footerIcon || '').setStyle(TextInputStyle.Short).setRequired(false))
+            new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('footer_icon').setLabel('Footer Icon URL (or {user_avatar})').setValue(embedData.footerIcon || '').setStyle(TextInputStyle.Short).setRequired(false))
         );
         await interaction.showModal(modal);
     }
     
     if (action === 'embed_images') {
-        console.log('[DEBUG] Opening images modal for:', embedName);
         const modal = new ModalBuilder().setCustomId(`modal_images_${embedName}`).setTitle(`Edit Images: ${embedName}`);
         modal.addComponents(
-            new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('thumbnail').setLabel('Thumbnail URL').setValue(embedData.thumbnail || '').setStyle(TextInputStyle.Short).setRequired(false)),
-            new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('image').setLabel('Image URL').setValue(embedData.image || '').setStyle(TextInputStyle.Short).setRequired(false))
+            new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('thumbnail').setLabel('Thumbnail URL (or {user_avatar})').setValue(embedData.thumbnail || '').setStyle(TextInputStyle.Short).setRequired(false)),
+            new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('image').setLabel('Main Image URL (or {user_avatar})').setValue(embedData.image || '').setStyle(TextInputStyle.Short).setRequired(false))
         );
         await interaction.showModal(modal);
     }
@@ -107,20 +120,12 @@ async function handleEmbedModals(interaction) {
     console.log('[DEBUG] Modal CustomId:', interaction.customId);
     
     if (interaction.customId.startsWith('modal_basic_')) {
-        console.log('[DEBUG] Processing basic modal');
         const embedName = interaction.customId.replace('modal_basic_', '');
         const guildId = interaction.guildId;
-        
-        console.log('[DEBUG] Embed name:', embedName);
-        console.log('[DEBUG] Guild ID:', guildId);
         
         const title = interaction.fields.getTextInputValue('title');
         let description = interaction.fields.getTextInputValue('description');
         let color = interaction.fields.getTextInputValue('color');
-        
-        console.log('[DEBUG] Title:', title);
-        console.log('[DEBUG] Description:', description);
-        console.log('[DEBUG] Color:', color);
         
         description = description.replace(/{newline}/g, '\n');
         
@@ -128,8 +133,6 @@ async function handleEmbedModals(interaction) {
         if (color && color.startsWith('#')) {
             embedColor = parseInt(color.slice(1), 16) || 0xffb7c5;
         }
-        
-        console.log('[DEBUG] Parsed color:', embedColor);
         
         let embeds = await db.get(`saved_embeds_${guildId}`) || {};
         if (!embeds[embedName]) embeds[embedName] = {};
@@ -139,22 +142,15 @@ async function handleEmbedModals(interaction) {
         embeds[embedName].color = embedColor;
         
         await db.set(`saved_embeds_${guildId}`, embeds);
-        console.log('[DEBUG] Saved embed to database');
-        
         await showEmbedEditor(interaction, embedName, guildId);
-        console.log('[DEBUG] Modal processing complete');
     }
     
     if (interaction.customId.startsWith('modal_author_')) {
-        console.log('[DEBUG] Processing author modal');
         const embedName = interaction.customId.replace('modal_author_', '');
         const guildId = interaction.guildId;
         
         const authorName = interaction.fields.getTextInputValue('author_name');
         const authorIcon = interaction.fields.getTextInputValue('author_icon');
-        
-        console.log('[DEBUG] Author name:', authorName);
-        console.log('[DEBUG] Author icon:', authorIcon);
         
         let embeds = await db.get(`saved_embeds_${guildId}`) || {};
         if (!embeds[embedName]) embeds[embedName] = {};
@@ -167,15 +163,11 @@ async function handleEmbedModals(interaction) {
     }
     
     if (interaction.customId.startsWith('modal_footer_')) {
-        console.log('[DEBUG] Processing footer modal');
         const embedName = interaction.customId.replace('modal_footer_', '');
         const guildId = interaction.guildId;
         
         const footerText = interaction.fields.getTextInputValue('footer_text');
         const footerIcon = interaction.fields.getTextInputValue('footer_icon');
-        
-        console.log('[DEBUG] Footer text:', footerText);
-        console.log('[DEBUG] Footer icon:', footerIcon);
         
         let embeds = await db.get(`saved_embeds_${guildId}`) || {};
         if (!embeds[embedName]) embeds[embedName] = {};
@@ -188,15 +180,11 @@ async function handleEmbedModals(interaction) {
     }
     
     if (interaction.customId.startsWith('modal_images_')) {
-        console.log('[DEBUG] Processing images modal');
         const embedName = interaction.customId.replace('modal_images_', '');
         const guildId = interaction.guildId;
         
         const thumbnail = interaction.fields.getTextInputValue('thumbnail');
         const image = interaction.fields.getTextInputValue('image');
-        
-        console.log('[DEBUG] Thumbnail:', thumbnail);
-        console.log('[DEBUG] Image:', image);
         
         let embeds = await db.get(`saved_embeds_${guildId}`) || {};
         if (!embeds[embedName]) embeds[embedName] = {};
