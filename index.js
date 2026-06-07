@@ -3,7 +3,7 @@ require('dotenv').config();
 const fs = require('fs');
 const db = require('./database-mongo.js');
 
-const { handleEmbedButtons, handleEmbedModals } = require('./handlers/embedHandler.js');
+const { handleEmbedButtons, handleEmbedModals, showEmbedEditor } = require('./handlers/embedHandler.js');
 const { handleAutoresponder } = require('./handlers/autoresponderHandler.js');
 
 const client = new Client({
@@ -25,8 +25,9 @@ for (const file of commandFiles) {
     console.log(`Loaded: ${command.data.name}`);
 }
 
-// Handle interactions (slash commands + buttons + modals)
+// Handle interactions (slash commands + buttons + modals + dropdowns)
 client.on('interactionCreate', async interaction => {
+    // Slash commands
     if (interaction.isChatInputCommand()) {
         const command = client.commands.get(interaction.commandName);
         if (!command) return;
@@ -38,10 +39,19 @@ client.on('interactionCreate', async interaction => {
         }
     }
     
+    // Handle embed selection dropdown
+    if (interaction.isStringSelectMenu() && interaction.customId === 'embed_select_edit') {
+        const embedName = interaction.values[0];
+        const guildId = interaction.guildId;
+        await showEmbedEditor(interaction, embedName, guildId);
+    }
+    
+    // Buttons
     if (interaction.isButton()) {
         await handleEmbedButtons(interaction);
     }
     
+    // Modals
     if (interaction.isModalSubmit()) {
         await handleEmbedModals(interaction);
     }
