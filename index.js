@@ -36,6 +36,40 @@ client.on('interactionCreate', async interaction => {
     }
 });
 
+// Handle message commands for autoresponder
+client.on('messageCreate', async message => {
+    if (message.author.bot) return;
+    if (!message.guild) return;
+    
+    const triggers = await db.get(`autoresponder_${message.guild.id}`) || {};
+    const content = message.content.toLowerCase();
+    
+    for (const [trigger, data] of Object.entries(triggers)) {
+        if (content.includes(trigger.toLowerCase())) {
+            // Check if it's an embed response
+            const embedMatch = data.response.match(/{embed:([^}]+)}/);
+            
+            if (embedMatch) {
+                const embedName = embedMatch[1].toLowerCase();
+                const savedEmbeds = await db.get(`saved_embeds_${message.guild.id}`) || {};
+                const embedData = savedEmbeds[embedName];
+                
+                if (embedData) {
+                    const embed = new EmbedBuilder().setColor(embedData.color || 0xffb7c5);
+                    if (embedData.title) embed.setTitle(embedData.title);
+                    if (embedData.description) embed.setDescription(embedData.description);
+                    await message.reply({ embeds: [embed] });
+                }
+            } else {
+                // Text response
+                let response = data.response.replace(/{user}/g, message.author.username);
+                await message.reply({ content: response });
+            }
+            break;
+        }
+    }
+});
+
 client.once('ready', () => {
     console.log(`${client.user.tag} is online!`);
 });
