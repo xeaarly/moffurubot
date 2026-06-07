@@ -6,14 +6,12 @@ module.exports = {
     data: new SlashCommandBuilder()
         .setName('embed')
         .setDescription('Create and manage custom embeds')
-        // Main commands
         .addSubcommand(sub => sub.setName('create').setDescription('Create a new embed').addStringOption(opt => opt.setName('name').setDescription('Embed name (no spaces, max 16 chars)').setRequired(true)))
         .addSubcommand(sub => sub.setName('edit').setDescription('Edit an existing embed').addStringOption(opt => opt.setName('name').setDescription('Embed name (leave empty to select from list)').setRequired(false)))
         .addSubcommand(sub => sub.setName('send').setDescription('Send an embed to a channel').addStringOption(opt => opt.setName('name').setDescription('Embed name').setRequired(true)).addChannelOption(opt => opt.setName('channel').setDescription('Channel to send to').setRequired(false)))
         .addSubcommand(sub => sub.setName('show').setDescription('Preview an embed').addStringOption(opt => opt.setName('name').setDescription('Embed name').setRequired(true)))
         .addSubcommand(sub => sub.setName('list').setDescription('List all saved embeds'))
         .addSubcommand(sub => sub.setName('delete').setDescription('Delete an embed').addStringOption(opt => opt.setName('name').setDescription('Embed name').setRequired(true)))
-        // Individual property edits
         .addSubcommand(sub => sub.setName('author').setDescription('Edit embed author').addStringOption(opt => opt.setName('name').setDescription('Embed name').setRequired(true)).addStringOption(opt => opt.setName('text').setDescription('Author text').setRequired(false)).addStringOption(opt => opt.setName('icon').setDescription('Author icon URL').setRequired(false)))
         .addSubcommand(sub => sub.setName('title').setDescription('Edit embed title').addStringOption(opt => opt.setName('name').setDescription('Embed name').setRequired(true)).addStringOption(opt => opt.setName('text').setDescription('Title text').setRequired(false)))
         .addSubcommand(sub => sub.setName('description').setDescription('Edit embed description').addStringOption(opt => opt.setName('name').setDescription('Embed name').setRequired(true)).addStringOption(opt => opt.setName('text').setDescription('Description text').setRequired(false)))
@@ -31,7 +29,7 @@ module.exports = {
             return interaction.reply({ content: '❌ You need Manage Messages permission!', ephemeral: true });
         }
 
-        // ========== CREATE EMBED ==========
+        // CREATE EMBED
         if (sub === 'create') {
             let embedName = interaction.options.getString('name').toLowerCase().replace(/\s/g, '_');
             
@@ -60,7 +58,7 @@ module.exports = {
             await interaction.showModal(modal);
         }
 
-        // ========== EDIT EMBED (with dropdown selector) ==========
+        // EDIT EMBED
         else if (sub === 'edit') {
             const embedName = interaction.options.getString('name');
             
@@ -99,10 +97,10 @@ module.exports = {
             });
         }
 
-        // ========== SEND EMBED ==========
+        // SEND EMBED (with full variable support)
         else if (sub === 'send') {
             const embedName = interaction.options.getString('name').toLowerCase();
-            const channel = interaction.options.getChannel('channel') || interaction.channel;
+            const targetChannel = interaction.options.getChannel('channel') || interaction.channel;
             const embeds = await db.get(`saved_embeds_${guildId}`) || {};
             const embedData = embeds[embedName];
             
@@ -111,74 +109,78 @@ module.exports = {
             }
 
             const user = interaction.user;
+            const guild = interaction.guild;
+            
+            const replaceVars = (text) => {
+                if (!text) return text;
+                let result = text;
+                result = result.replace(/{user}/g, user.username);
+                result = result.replace(/{user_name}/g, user.username);
+                result = result.replace(/{user_tag}/g, user.tag || user.username);
+                result = result.replace(/{user_id}/g, user.id);
+                result = result.replace(/{user_avatar}/g, user.displayAvatarURL());
+                result = result.replace(/{user_icon}/g, user.displayAvatarURL());
+                result = result.replace(/{user_nick}/g, interaction.member?.nickname || user.username);
+                result = result.replace(/{server_name}/g, guild.name);
+                result = result.replace(/{server_id}/g, guild.id);
+                result = result.replace(/{server_membercount}/g, guild.memberCount);
+                result = result.replace(/{server_icon}/g, guild.iconURL() || '');
+                result = result.replace(/{channel}/g, `<#${targetChannel.id}>`);
+                result = result.replace(/{channel_name}/g, targetChannel.name);
+                result = result.replace(/{newline}/g, '\n');
+                result = result.replace(/{date}/g, new Date().toLocaleString());
+                return result;
+            };
+            
             const embed = new EmbedBuilder().setColor(embedData.color || 0xffb7c5);
             
-            // Author - handle {user_avatar} placeholder
             if (embedData.authorName) {
-                let authorText = embedData.authorName.replace(/{user}/g, user.username).replace(/{user_name}/g, user.username).replace(/{user_tag}/g, user.username);
+                let authorText = replaceVars(embedData.authorName);
                 let authorIcon = null;
                 if (embedData.authorIcon) {
                     if (embedData.authorIcon === '{user_avatar}' || embedData.authorIcon === '{user_icon}') {
                         authorIcon = user.displayAvatarURL();
+                    } else if (embedData.authorIcon === '{server_icon}') {
+                        authorIcon = guild.iconURL();
                     } else {
-                        authorIcon = embedData.authorIcon;
+                        authorIcon = replaceVars(embedData.authorIcon);
                     }
                 }
                 embed.setAuthor({ name: authorText, iconURL: authorIcon });
             }
-            
-            // Title
-            if (embedData.title) {
-                embed.setTitle(embedData.title.replace(/{user}/g, user.username).replace(/{user_name}/g, user.username).replace(/{user_tag}/g, user.username));
-            }
-            
-            // Description
-            if (embedData.description) {
-                embed.setDescription(embedData.description.replace(/{user}/g, user.username).replace(/{user_name}/g, user.username).replace(/{user_tag}/g, user.username).replace(/{newline}/g, '\n'));
-            }
-            
-            // Thumbnail - handle {user_avatar} placeholder
+            if (embedData.title) embed.setTitle(replaceVars(embedData.title));
+            if (embedData.description) embed.setDescription(replaceVars(embedData.description));
             if (embedData.thumbnail) {
                 let thumbnail = embedData.thumbnail;
-                if (thumbnail === '{user_avatar}' || thumbnail === '{user_icon}') {
-                    thumbnail = user.displayAvatarURL();
-                }
+                if (thumbnail === '{user_avatar}' || thumbnail === '{user_icon}') thumbnail = user.displayAvatarURL();
+                else if (thumbnail === '{server_icon}') thumbnail = guild.iconURL();
+                else thumbnail = replaceVars(thumbnail);
                 embed.setThumbnail(thumbnail);
             }
-            
-            // Image - handle {user_avatar} placeholder
             if (embedData.image) {
                 let image = embedData.image;
-                if (image === '{user_avatar}' || image === '{user_icon}') {
-                    image = user.displayAvatarURL();
-                }
+                if (image === '{user_avatar}' || image === '{user_icon}') image = user.displayAvatarURL();
+                else if (image === '{server_icon}') image = guild.iconURL();
+                else image = replaceVars(image);
                 embed.setImage(image);
             }
-            
-            // Footer - handle {user_avatar} placeholder
             if (embedData.footerText) {
-                let footerText = embedData.footerText.replace(/{user}/g, user.username).replace(/{user_name}/g, user.username).replace(/{user_tag}/g, user.username);
+                let footerText = replaceVars(embedData.footerText);
                 let footerIcon = null;
                 if (embedData.footerIcon) {
-                    if (embedData.footerIcon === '{user_avatar}' || embedData.footerIcon === '{user_icon}') {
-                        footerIcon = user.displayAvatarURL();
-                    } else {
-                        footerIcon = embedData.footerIcon;
-                    }
+                    if (embedData.footerIcon === '{user_avatar}' || embedData.footerIcon === '{user_icon}') footerIcon = user.displayAvatarURL();
+                    else if (embedData.footerIcon === '{server_icon}') footerIcon = guild.iconURL();
+                    else footerIcon = replaceVars(embedData.footerIcon);
                 }
                 embed.setFooter({ text: footerText, iconURL: footerIcon });
             }
-            
-            // Timestamp
-            if (embedData.timestamp) {
-                embed.setTimestamp();
-            }
+            if (embedData.timestamp) embed.setTimestamp();
 
-            await channel.send({ embeds: [embed] });
-            await interaction.reply({ content: `✅ Embed sent to ${channel}!`, ephemeral: true });
+            await targetChannel.send({ embeds: [embed] });
+            await interaction.reply({ content: `✅ Embed sent to ${targetChannel}!`, ephemeral: true });
         }
 
-        // ========== SHOW PREVIEW ==========
+        // SHOW PREVIEW
         else if (sub === 'show') {
             const embedName = interaction.options.getString('name').toLowerCase();
             const embeds = await db.get(`saved_embeds_${guildId}`) || {};
@@ -189,45 +191,65 @@ module.exports = {
             }
 
             const user = interaction.user;
+            const guild = interaction.guild;
+            const channel = interaction.channel;
+            
+            const replaceVars = (text) => {
+                if (!text) return text;
+                let result = text;
+                result = result.replace(/{user}/g, user.username);
+                result = result.replace(/{user_name}/g, user.username);
+                result = result.replace(/{user_tag}/g, user.tag || user.username);
+                result = result.replace(/{user_id}/g, user.id);
+                result = result.replace(/{user_avatar}/g, user.displayAvatarURL());
+                result = result.replace(/{user_icon}/g, user.displayAvatarURL());
+                result = result.replace(/{user_nick}/g, interaction.member?.nickname || user.username);
+                result = result.replace(/{server_name}/g, guild.name);
+                result = result.replace(/{server_id}/g, guild.id);
+                result = result.replace(/{server_membercount}/g, guild.memberCount);
+                result = result.replace(/{server_icon}/g, guild.iconURL() || '');
+                result = result.replace(/{channel}/g, `<#${channel.id}>`);
+                result = result.replace(/{channel_name}/g, channel.name);
+                result = result.replace(/{newline}/g, '\n');
+                result = result.replace(/{date}/g, new Date().toLocaleString());
+                return result;
+            };
+            
             const embed = new EmbedBuilder().setColor(embedData.color || 0xffb7c5);
             
             if (embedData.authorName) {
-                let authorText = embedData.authorName.replace(/{user}/g, user.username).replace(/{user_name}/g, user.username).replace(/{user_tag}/g, user.username);
+                let authorText = replaceVars(embedData.authorName);
                 let authorIcon = null;
                 if (embedData.authorIcon) {
-                    if (embedData.authorIcon === '{user_avatar}' || embedData.authorIcon === '{user_icon}') {
-                        authorIcon = user.displayAvatarURL();
-                    } else {
-                        authorIcon = embedData.authorIcon;
-                    }
+                    if (embedData.authorIcon === '{user_avatar}' || embedData.authorIcon === '{user_icon}') authorIcon = user.displayAvatarURL();
+                    else if (embedData.authorIcon === '{server_icon}') authorIcon = guild.iconURL();
+                    else authorIcon = replaceVars(embedData.authorIcon);
                 }
                 embed.setAuthor({ name: authorText, iconURL: authorIcon });
             }
-            if (embedData.title) embed.setTitle(embedData.title.replace(/{user}/g, user.username).replace(/{user_name}/g, user.username));
-            if (embedData.description) embed.setDescription(embedData.description.replace(/{user}/g, user.username).replace(/{user_name}/g, user.username).replace(/{newline}/g, '\n'));
+            if (embedData.title) embed.setTitle(replaceVars(embedData.title));
+            if (embedData.description) embed.setDescription(replaceVars(embedData.description));
             if (embedData.thumbnail) {
                 let thumbnail = embedData.thumbnail;
-                if (thumbnail === '{user_avatar}' || thumbnail === '{user_icon}') {
-                    thumbnail = user.displayAvatarURL();
-                }
+                if (thumbnail === '{user_avatar}' || thumbnail === '{user_icon}') thumbnail = user.displayAvatarURL();
+                else if (thumbnail === '{server_icon}') thumbnail = guild.iconURL();
+                else thumbnail = replaceVars(thumbnail);
                 embed.setThumbnail(thumbnail);
             }
             if (embedData.image) {
                 let image = embedData.image;
-                if (image === '{user_avatar}' || image === '{user_icon}') {
-                    image = user.displayAvatarURL();
-                }
+                if (image === '{user_avatar}' || image === '{user_icon}') image = user.displayAvatarURL();
+                else if (image === '{server_icon}') image = guild.iconURL();
+                else image = replaceVars(image);
                 embed.setImage(image);
             }
             if (embedData.footerText) {
-                let footerText = embedData.footerText.replace(/{user}/g, user.username).replace(/{user_name}/g, user.username);
+                let footerText = replaceVars(embedData.footerText);
                 let footerIcon = null;
                 if (embedData.footerIcon) {
-                    if (embedData.footerIcon === '{user_avatar}' || embedData.footerIcon === '{user_icon}') {
-                        footerIcon = user.displayAvatarURL();
-                    } else {
-                        footerIcon = embedData.footerIcon;
-                    }
+                    if (embedData.footerIcon === '{user_avatar}' || embedData.footerIcon === '{user_icon}') footerIcon = user.displayAvatarURL();
+                    else if (embedData.footerIcon === '{server_icon}') footerIcon = guild.iconURL();
+                    else footerIcon = replaceVars(embedData.footerIcon);
                 }
                 embed.setFooter({ text: footerText, iconURL: footerIcon });
             }
@@ -236,7 +258,7 @@ module.exports = {
             await interaction.reply({ embeds: [embed], ephemeral: true });
         }
 
-        // ========== LIST EMBEDS ==========
+        // LIST EMBEDS
         else if (sub === 'list') {
             const embeds = await db.get(`saved_embeds_${guildId}`) || {};
             const list = Object.keys(embeds);
@@ -254,7 +276,7 @@ module.exports = {
             await interaction.reply({ embeds: [embed], ephemeral: true });
         }
 
-        // ========== DELETE EMBED ==========
+        // DELETE EMBED
         else if (sub === 'delete') {
             const embedName = interaction.options.getString('name').toLowerCase();
             const embeds = await db.get(`saved_embeds_${guildId}`) || {};
@@ -268,7 +290,7 @@ module.exports = {
             await interaction.reply({ content: `✅ Embed "${embedName}" deleted!`, ephemeral: true });
         }
 
-        // ========== EDIT AUTHOR ==========
+        // EDIT AUTHOR
         else if (sub === 'author') {
             const embedName = interaction.options.getString('name').toLowerCase();
             const text = interaction.options.getString('text');
@@ -285,7 +307,7 @@ module.exports = {
             await interaction.reply({ content: `✅ Author updated for "${embedName}"!`, ephemeral: true });
         }
 
-        // ========== EDIT TITLE ==========
+        // EDIT TITLE
         else if (sub === 'title') {
             const embedName = interaction.options.getString('name').toLowerCase();
             const text = interaction.options.getString('text');
@@ -300,7 +322,7 @@ module.exports = {
             await interaction.reply({ content: `✅ Title updated for "${embedName}"!`, ephemeral: true });
         }
 
-        // ========== EDIT DESCRIPTION ==========
+        // EDIT DESCRIPTION
         else if (sub === 'description') {
             const embedName = interaction.options.getString('name').toLowerCase();
             let text = interaction.options.getString('text');
@@ -317,7 +339,7 @@ module.exports = {
             await interaction.reply({ content: `✅ Description updated for "${embedName}"!`, ephemeral: true });
         }
 
-        // ========== EDIT COLOR ==========
+        // EDIT COLOR
         else if (sub === 'color') {
             const embedName = interaction.options.getString('name').toLowerCase();
             let color = interaction.options.getString('color');
@@ -337,7 +359,7 @@ module.exports = {
             await interaction.reply({ content: `✅ Color updated for "${embedName}"!`, ephemeral: true });
         }
 
-        // ========== EDIT THUMBNAIL ==========
+        // EDIT THUMBNAIL
         else if (sub === 'thumbnail') {
             const embedName = interaction.options.getString('name').toLowerCase();
             const image = interaction.options.getString('image');
@@ -352,7 +374,7 @@ module.exports = {
             await interaction.reply({ content: `✅ Thumbnail updated for "${embedName}"!`, ephemeral: true });
         }
 
-        // ========== EDIT IMAGE ==========
+        // EDIT IMAGE
         else if (sub === 'image') {
             const embedName = interaction.options.getString('name').toLowerCase();
             const image = interaction.options.getString('image');
@@ -367,7 +389,7 @@ module.exports = {
             await interaction.reply({ content: `✅ Image updated for "${embedName}"!`, ephemeral: true });
         }
 
-        // ========== EDIT FOOTER ==========
+        // EDIT FOOTER
         else if (sub === 'footer') {
             const embedName = interaction.options.getString('name').toLowerCase();
             const text = interaction.options.getString('text');
@@ -384,7 +406,7 @@ module.exports = {
             await interaction.reply({ content: `✅ Footer updated for "${embedName}"!`, ephemeral: true });
         }
 
-        // ========== EDIT TIMESTAMP ==========
+        // EDIT TIMESTAMP
         else if (sub === 'timestamp') {
             const embedName = interaction.options.getString('name').toLowerCase();
             const enabled = interaction.options.getBoolean('enabled');
