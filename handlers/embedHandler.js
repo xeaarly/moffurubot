@@ -29,11 +29,13 @@ async function showEmbedEditor(interaction, embedName, guildId) {
             new ButtonBuilder().setCustomId(`embed_done_${embedName}`).setLabel('Save').setStyle(ButtonStyle.Success).setEmoji('✅')
         );
 
-    if (interaction.update) {
-        await interaction.update({ content: `Editing: ${embedName}`, embeds: [preview], components: [row1, row2] });
-    } else {
-        await interaction.reply({ content: `Editing: ${embedName}`, embeds: [preview], components: [row1, row2], ephemeral: true });
-    }
+    // For modal responses, we must use reply (not update)
+    await interaction.reply({ 
+        content: `Editing: ${embedName}`, 
+        embeds: [preview], 
+        components: [row1, row2], 
+        ephemeral: true 
+    });
     
     console.log('[DEBUG] showEmbedEditor completed');
 }
