@@ -4,10 +4,10 @@ const db = require('../database-mongo.js');
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('autoresponder')
-        .setDescription('Manage auto-responses')
-        .addSubcommand(sub => sub.setName('add').setDescription('Add trigger').addStringOption(opt => opt.setName('trigger').setDescription('Word').setRequired(true)).addStringOption(opt => opt.setName('response').setDescription('Reply or {embed:name}').setRequired(true)))
-        .addSubcommand(sub => sub.setName('remove').setDescription('Remove trigger').addStringOption(opt => opt.setName('trigger').setDescription('Word').setRequired(true)))
-        .addSubcommand(sub => sub.setName('list').setDescription('List triggers')),
+        .setDescription('Manage auto-response triggers (Mimu style)')
+        .addSubcommand(sub => sub.setName('add').setDescription('Add a text or embed auto-response').addStringOption(opt => opt.setName('trigger').setDescription('Word that triggers the response').setRequired(true)).addStringOption(opt => opt.setName('response').setDescription('Response text or {embed:name} for saved embeds').setRequired(true)))
+        .addSubcommand(sub => sub.setName('remove').setDescription('Remove an auto-response trigger').addStringOption(opt => opt.setName('trigger').setDescription('Trigger word to remove').setRequired(true)))
+        .addSubcommand(sub => sub.setName('list').setDescription('List all auto-response triggers')),
     
     async execute(interaction) {
         const sub = interaction.options.getSubcommand();
@@ -32,7 +32,7 @@ module.exports = {
             const embed = new EmbedBuilder()
                 .setColor(0xffb7c5)
                 .setTitle('AutoResponder Added')
-                .setDescription(`Trigger: ${trigger}\nResponse: ${response.substring(0, 100)}`);
+                .setDescription(`Trigger: ${trigger}\nResponse: ${response}\n\nTip: Use {user} to mention the user, {newline} for line breaks!`);
             
             await interaction.reply({ embeds: [embed], ephemeral: true });
         }
@@ -47,7 +47,7 @@ module.exports = {
             
             delete triggers[trigger];
             await db.set(`autoresponder_${guildId}`, triggers);
-            await interaction.reply({ content: `Removed "${trigger}"`, ephemeral: true });
+            await interaction.reply({ content: `Removed trigger: ${trigger}`, ephemeral: true });
         }
         
         else if (sub === 'list') {
@@ -55,13 +55,14 @@ module.exports = {
             let list = Object.keys(triggers);
             
             if (list.length === 0) {
-                return interaction.reply({ content: 'No triggers! Use /autoresponder add', ephemeral: true });
+                return interaction.reply({ content: 'No AutoResponders found! Use /autoresponder add to create one.', ephemeral: true });
             }
             
             const embed = new EmbedBuilder()
                 .setColor(0xffb7c5)
                 .setTitle('AutoResponders')
-                .setDescription(list.map((t, i) => `${i+1}. ${t}`).join('\n'));
+                .setDescription(list.map((t, i) => `${i+1}. ${t}`).join('\n'))
+                .setFooter({ text: `Total: ${list.length} triggers` });
             
             await interaction.reply({ embeds: [embed], ephemeral: true });
         }
