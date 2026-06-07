@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, EmbedBuilder, PermissionsBitField, ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder, PermissionsBitField, ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, StringSelectMenuBuilder, StringSelectMenuOptionBuilder } = require('discord.js');
 const db = require('../database-mongo.js');
 const { showEmbedEditor } = require('../handlers/embedHandler.js');
 
@@ -8,20 +8,20 @@ module.exports = {
         .setDescription('Create and manage custom embeds')
         // Main commands
         .addSubcommand(sub => sub.setName('create').setDescription('Create a new embed').addStringOption(opt => opt.setName('name').setDescription('Embed name (no spaces, max 16 chars)').setRequired(true)))
-        .addSubcommand(sub => sub.setName('edit').setDescription('Edit an existing embed (opens button menu)').addStringOption(opt => opt.setName('name').setDescription('Embed name').setRequired(true)))
+        .addSubcommand(sub => sub.setName('edit').setDescription('Edit an existing embed').addStringOption(opt => opt.setName('name').setDescription('Embed name (leave empty to select from list)').setRequired(false)))
         .addSubcommand(sub => sub.setName('send').setDescription('Send an embed to a channel').addStringOption(opt => opt.setName('name').setDescription('Embed name').setRequired(true)).addChannelOption(opt => opt.setName('channel').setDescription('Channel to send to').setRequired(false)))
         .addSubcommand(sub => sub.setName('show').setDescription('Preview an embed').addStringOption(opt => opt.setName('name').setDescription('Embed name').setRequired(true)))
         .addSubcommand(sub => sub.setName('list').setDescription('List all saved embeds'))
         .addSubcommand(sub => sub.setName('delete').setDescription('Delete an embed').addStringOption(opt => opt.setName('name').setDescription('Embed name').setRequired(true)))
-        // Individual property edits (advanced users)
-        .addSubcommand(sub => sub.setName('author').setDescription('Edit embed author').addStringOption(opt => opt.setName('name').setDescription('Embed name').setRequired(true)).addStringOption(opt => opt.setName('text').setDescription('Author text (leave empty to remove)').setRequired(false)).addStringOption(opt => opt.setName('icon').setDescription('Author icon URL (or {user_avatar})').setRequired(false)))
-        .addSubcommand(sub => sub.setName('title').setDescription('Edit embed title').addStringOption(opt => opt.setName('name').setDescription('Embed name').setRequired(true)).addStringOption(opt => opt.setName('text').setDescription('Title text (leave empty to remove)').setRequired(false)))
-        .addSubcommand(sub => sub.setName('description').setDescription('Edit embed description').addStringOption(opt => opt.setName('name').setDescription('Embed name').setRequired(true)).addStringOption(opt => opt.setName('text').setDescription('Description text (use {newline}, leave empty to remove)').setRequired(false)))
-        .addSubcommand(sub => sub.setName('color').setDescription('Edit embed color').addStringOption(opt => opt.setName('name').setDescription('Embed name').setRequired(true)).addStringOption(opt => opt.setName('color').setDescription('Hex color code (e.g., #ffb7c5, leave empty to keep default)').setRequired(false)))
-        .addSubcommand(sub => sub.setName('thumbnail').setDescription('Edit embed thumbnail').addStringOption(opt => opt.setName('name').setDescription('Embed name').setRequired(true)).addStringOption(opt => opt.setName('image').setDescription('Image URL (or {user_avatar}, leave empty to remove)').setRequired(false)))
-        .addSubcommand(sub => sub.setName('image').setDescription('Edit embed image').addStringOption(opt => opt.setName('name').setDescription('Embed name').setRequired(true)).addStringOption(opt => opt.setName('image').setDescription('Image URL (or {user_avatar}, leave empty to remove)').setRequired(false)))
-        .addSubcommand(sub => sub.setName('footer').setDescription('Edit embed footer').addStringOption(opt => opt.setName('name').setDescription('Embed name').setRequired(true)).addStringOption(opt => opt.setName('text').setDescription('Footer text (leave empty to remove)').setRequired(false)).addStringOption(opt => opt.setName('icon').setDescription('Footer icon URL (or {user_avatar})').setRequired(false)))
-        .addSubcommand(sub => sub.setName('timestamp').setDescription('Add or remove timestamp').addStringOption(opt => opt.setName('name').setDescription('Embed name').setRequired(true)).addBooleanOption(opt => opt.setName('enabled').setDescription('True to add timestamp, False to remove').setRequired(true))),
+        // Individual property edits
+        .addSubcommand(sub => sub.setName('author').setDescription('Edit embed author').addStringOption(opt => opt.setName('name').setDescription('Embed name').setRequired(true)).addStringOption(opt => opt.setName('text').setDescription('Author text').setRequired(false)).addStringOption(opt => opt.setName('icon').setDescription('Author icon URL').setRequired(false)))
+        .addSubcommand(sub => sub.setName('title').setDescription('Edit embed title').addStringOption(opt => opt.setName('name').setDescription('Embed name').setRequired(true)).addStringOption(opt => opt.setName('text').setDescription('Title text').setRequired(false)))
+        .addSubcommand(sub => sub.setName('description').setDescription('Edit embed description').addStringOption(opt => opt.setName('name').setDescription('Embed name').setRequired(true)).addStringOption(opt => opt.setName('text').setDescription('Description text').setRequired(false)))
+        .addSubcommand(sub => sub.setName('color').setDescription('Edit embed color').addStringOption(opt => opt.setName('name').setDescription('Embed name').setRequired(true)).addStringOption(opt => opt.setName('color').setDescription('Hex color code').setRequired(false)))
+        .addSubcommand(sub => sub.setName('thumbnail').setDescription('Edit embed thumbnail').addStringOption(opt => opt.setName('name').setDescription('Embed name').setRequired(true)).addStringOption(opt => opt.setName('image').setDescription('Image URL').setRequired(false)))
+        .addSubcommand(sub => sub.setName('image').setDescription('Edit embed image').addStringOption(opt => opt.setName('name').setDescription('Embed name').setRequired(true)).addStringOption(opt => opt.setName('image').setDescription('Image URL').setRequired(false)))
+        .addSubcommand(sub => sub.setName('footer').setDescription('Edit embed footer').addStringOption(opt => opt.setName('name').setDescription('Embed name').setRequired(true)).addStringOption(opt => opt.setName('text').setDescription('Footer text').setRequired(false)).addStringOption(opt => opt.setName('icon').setDescription('Footer icon URL').setRequired(false)))
+        .addSubcommand(sub => sub.setName('timestamp').setDescription('Add or remove timestamp').addStringOption(opt => opt.setName('name').setDescription('Embed name').setRequired(true)).addBooleanOption(opt => opt.setName('enabled').setDescription('True to add, False to remove').setRequired(true))),
 
     async execute(interaction) {
         const sub = interaction.options.getSubcommand();
@@ -31,7 +31,7 @@ module.exports = {
             return interaction.reply({ content: '❌ You need Manage Messages permission!', ephemeral: true });
         }
 
-        // ========== CREATE EMBED (Button Editor) ==========
+        // ========== CREATE EMBED ==========
         if (sub === 'create') {
             let embedName = interaction.options.getString('name').toLowerCase().replace(/\s/g, '_');
             
@@ -60,16 +60,45 @@ module.exports = {
             await interaction.showModal(modal);
         }
 
-        // ========== EDIT (Button Menu) ==========
+        // ========== EDIT EMBED (with dropdown selector) ==========
         else if (sub === 'edit') {
-            const embedName = interaction.options.getString('name').toLowerCase();
-            const embeds = await db.get(`saved_embeds_${guildId}`) || {};
+            const embedName = interaction.options.getString('name');
             
-            if (!embeds[embedName]) {
-                return interaction.reply({ content: `❌ Embed "${embedName}" not found!`, ephemeral: true });
+            // If name provided, edit directly
+            if (embedName) {
+                const embeds = await db.get(`saved_embeds_${guildId}`) || {};
+                if (!embeds[embedName]) {
+                    return interaction.reply({ content: `❌ Embed "${embedName}" not found!`, ephemeral: true });
+                }
+                await showEmbedEditor(interaction, embedName, guildId);
+                return;
             }
             
-            await showEmbedEditor(interaction, embedName, guildId);
+            // Otherwise, show dropdown of all embeds
+            const embeds = await db.get(`saved_embeds_${guildId}`) || {};
+            const embedList = Object.keys(embeds);
+            
+            if (embedList.length === 0) {
+                return interaction.reply({ content: '📭 No embeds found! Create one with `/embed create`', ephemeral: true });
+            }
+            
+            const selectMenu = new StringSelectMenuBuilder()
+                .setCustomId('embed_select_edit')
+                .setPlaceholder('Select an embed to edit')
+                .addOptions(
+                    embedList.map(embed => new StringSelectMenuOptionBuilder()
+                        .setLabel(embed)
+                        .setDescription(`Edit ${embed}`)
+                        .setValue(embed))
+                );
+            
+            const row = new ActionRowBuilder().addComponents(selectMenu);
+            
+            await interaction.reply({
+                content: '📦 Select which embed you want to edit:',
+                components: [row],
+                ephemeral: true
+            });
         }
 
         // ========== SEND EMBED ==========
@@ -135,7 +164,7 @@ module.exports = {
                 .setColor(0xffb7c5)
                 .setTitle(`📦 Saved Embeds (${list.length}/5)`)
                 .setDescription(list.map((n, i) => `${i+1}. \`${n}\``).join('\n'))
-                .setFooter({ text: 'Use `/embed edit` to modify via buttons, or `/embed edit [property]` for quick edits' });
+                .setFooter({ text: 'Use `/embed edit` to modify' });
 
             await interaction.reply({ embeds: [embed], ephemeral: true });
         }
