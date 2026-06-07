@@ -14,10 +14,24 @@ function formatNumber(num) {
 }
 
 // Helper function to replace all placeholders
-async function replacePlaceholders(text, user, guild, channel, message, client) {
+async function replacePlaceholders(text, user, guild, channel, message) {
     if (!text) return text;
     
     let result = text;
+    
+    // Check for {delete} function first - mark it for later
+    const hasDelete = result.includes('{delete}');
+    if (hasDelete) {
+        result = result.replace(/{delete}/g, '');
+    }
+    
+    // Check for {delete_reply:seconds}
+    let deleteReplySeconds = null;
+    const deleteReplyMatch = result.match(/{delete_reply:(\d+)}/);
+    if (deleteReplyMatch) {
+        deleteReplySeconds = parseInt(deleteReplyMatch[1]);
+        result = result.replace(/{delete_reply:\d+}/g, '');
+    }
     
     // ========== USER / AUTHOR INFORMATION ==========
     result = result.replace(/{user}/g, `<@${user.id}>`);
@@ -173,7 +187,7 @@ async function replacePlaceholders(text, user, guild, channel, message, client) 
     result = result.replace(/{date}/g, new Date().toLocaleString());
     result = result.replace(/{newline}/g, '\n');
     
-    return result;
+    return { text: result, hasDelete, deleteReplySeconds };
 }
 
 async function handleAutoresponder(message) {
@@ -183,6 +197,10 @@ async function handleAutoresponder(message) {
     for (const [trigger, data] of Object.entries(triggers)) {
         if (content.includes(trigger.toLowerCase())) {
             const embedMatch = data.response.match(/{embed:([^}]+)}/);
+            
+            let sentMessage = null;
+            let hasDelete = false;
+            let deleteReplySeconds = null;
             
             if (embedMatch) {
                 const embedName = embedMatch[1].toLowerCase();
@@ -194,11 +212,18 @@ async function handleAutoresponder(message) {
                     const guild = message.guild;
                     const channel = message.channel;
                     
+                    // Check for {delete} in the response (outside the embed)
+                    const hasDeleteInResponse = data.response.includes('{delete}');
+                    const deleteReplyMatch = data.response.match(/{delete_reply:(\d+)}/);
+                    if (deleteReplyMatch) {
+                        deleteReplySeconds = parseInt(deleteReplyMatch[1]);
+                    }
+                    
                     const embed = new EmbedBuilder().setColor(embedData.color || 0xffb7c5);
                     
                     // Author
                     if (embedData.authorName) {
-                        let authorText = await replacePlaceholders(embedData.authorName, user, guild, channel, message);
+                        let authorText = (await replacePlaceholders(embedData.authorName, user, guild, channel, message)).text;
                         let authorIcon = null;
                         if (embedData.authorIcon) {
                             if (embedData.authorIcon === '{user_avatar}' || embedData.authorIcon === '{user_icon}') {
@@ -206,7 +231,7 @@ async function handleAutoresponder(message) {
                             } else if (embedData.authorIcon === '{server_icon}') {
                                 authorIcon = guild.iconURL();
                             } else {
-                                authorIcon = await replacePlaceholders(embedData.authorIcon, user, guild, channel, message);
+                                authorIcon = (await replacePlaceholders(embedData.authorIcon, user, guild, channel, message)).text;
                             }
                         }
                         embed.setAuthor({ name: authorText, iconURL: authorIcon });
@@ -214,12 +239,12 @@ async function handleAutoresponder(message) {
                     
                     // Title
                     if (embedData.title) {
-                        embed.setTitle(await replacePlaceholders(embedData.title, user, guild, channel, message));
+                        embed.setTitle((await replacePlaceholders(embedData.title, user, guild, channel, message)).text);
                     }
                     
                     // Description
                     if (embedData.description) {
-                        embed.setDescription(await replacePlaceholders(embedData.description, user, guild, channel, message));
+                        embed.setDescription((await replacePlaceholders(embedData.description, user, guild, channel, message)).text);
                     }
                     
                     // Thumbnail
@@ -230,7 +255,7 @@ async function handleAutoresponder(message) {
                         } else if (thumbnail === '{server_icon}') {
                             thumbnail = guild.iconURL();
                         } else {
-                            thumbnail = await replacePlaceholders(thumbnail, user, guild, channel, message);
+                            thumbnail = (await replacePlaceholders(thumbnail, user, guild, channel, message)).text;
                         }
                         embed.setThumbnail(thumbnail);
                     }
@@ -243,14 +268,14 @@ async function handleAutoresponder(message) {
                         } else if (image === '{server_icon}') {
                             image = guild.iconURL();
                         } else {
-                            image = await replacePlaceholders(image, user, guild, channel, message);
+                            image = (await replacePlaceholders(image, user, guild, channel, message)).text;
                         }
                         embed.setImage(image);
                     }
                     
                     // Footer
                     if (embedData.footerText) {
-                        let footerText = await replacePlaceholders(embedData.footerText, user, guild, channel, message);
+                        let footerText = (await replacePlaceholders(embedData.footerText, user, guild, channel, message)).text;
                         let footerIcon = null;
                         if (embedData.footerIcon) {
                             if (embedData.footerIcon === '{user_avatar}' || embedData.footerIcon === '{user_icon}') {
@@ -258,7 +283,7 @@ async function handleAutoresponder(message) {
                             } else if (embedData.footerIcon === '{server_icon}') {
                                 footerIcon = guild.iconURL();
                             } else {
-                                footerIcon = await replacePlaceholders(embedData.footerIcon, user, guild, channel, message);
+                                footerIcon = (await replacePlaceholders(embedData.footerIcon, user, guild, channel, message)).text;
                             }
                         }
                         embed.setFooter({ text: footerText, iconURL: footerIcon });
@@ -269,15 +294,39 @@ async function handleAutoresponder(message) {
                         embed.setTimestamp();
                     }
                     
-                    await message.reply({ embeds: [embed] });
+                    sentMessage = await message.reply({ embeds: [embed] });
+                    hasDelete = hasDeleteInResponse;
                 } else {
                     await message.reply({ content: `❌ Embed "${embedName}" not found!` });
                 }
             } else {
                 // Text response with all placeholders
-                let response = await replacePlaceholders(data.response, message.author, message.guild, message.channel, message);
-                await message.reply({ content: response });
+                const result = await replacePlaceholders(data.response, message.author, message.guild, message.channel, message);
+                sentMessage = await message.reply({ content: result.text });
+                hasDelete = result.hasDelete;
+                deleteReplySeconds = result.deleteReplySeconds;
             }
+            
+            // Handle {delete} - delete the user's trigger message
+            if (hasDelete) {
+                try {
+                    await message.delete();
+                } catch (e) {
+                    console.log('Could not delete message:', e.message);
+                }
+            }
+            
+            // Handle {delete_reply:seconds} - delete bot's reply after X seconds
+            if (deleteReplySeconds && sentMessage) {
+                setTimeout(async () => {
+                    try {
+                        await sentMessage.delete();
+                    } catch (e) {
+                        console.log('Could not delete reply:', e.message);
+                    }
+                }, deleteReplySeconds * 1000);
+            }
+            
             break;
         }
     }
